@@ -19,7 +19,6 @@ public class TPController extends Activity {
 	
 	public static boolean mRunning;
 	public static final String KEY_RUNNING = "running";
-	private static final int DIALOG_NOMOUNT = 0;
 	
 	public static boolean DEBUG = false;
 

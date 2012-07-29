@@ -9,7 +9,6 @@ public class TagToggle extends Button {
 
 	private boolean selected;
 	private long tagId;
-	private PingsDbAdapter mdb;
 	
 	public TagToggle(Context context) {
 		super(context);

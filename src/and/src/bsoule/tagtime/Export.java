@@ -29,8 +29,6 @@ import android.widget.Button;
 public class Export extends Activity {
 	public static final String TAG = "TPExport";
 	private PingsDbAdapter mDb;
-	private Button mDoSD;
-	private Button mDoEmail;
 
 	//private static final int DIALOG_PROGRESS = 0;
 	private static final int DIALOG_NOMOUNT = 1;
