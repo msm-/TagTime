@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.security.SecureRandom;
 
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -13,6 +14,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.IBinder;
@@ -39,17 +41,16 @@ public class PingService extends Service {
 	private static final String TAG = "PingService";
 	private static int PING_NOTES = R.layout.tagtime_editping; 
 	public static final String KEY_NEXT = "nextping";
-	public static final String KEY_SEED = "RNG_seed";
-	private static final long MINTIME = 5*60*1000; 
+	public static final String KEY_PREV = "prevping";
 	private boolean mNotify;
 
 	private static PingService sInstance = null;
 
-	// seed is a variable that is really the state of the RNG.
-	private static long SEED;
 	private static long NEXT;
 
 	private static final long RETROTHRESH = 60;
+	
+	private static SecureRandom rand = new SecureRandom(); // seeded by default from /dev/urandom
 
 	public static PingService getInstance() {
 		return sInstance;
@@ -63,7 +64,6 @@ public class PingService extends Service {
 		PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
 		PowerManager.WakeLock wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "pingservice");
 		wl.acquire();
-		assert(true);
 
 		Date launch = new Date();
 		long launchTime = launch.getTime()/1000;
@@ -77,22 +77,24 @@ public class PingService extends Service {
 		mNotify = mPrefs.getBoolean(TPController.KEY_RUNNING, true);
 
 		NEXT = mPrefs.getLong(KEY_NEXT, -1); 
-		SEED = mPrefs.getLong(KEY_SEED, -1);
+		long prev = mPrefs.getLong(KEY_PREV, launchTime); // If no previous ping is stored; initialise from now
 
-		// First do a quick check to see if next ping is still in the future...
+		// First do a quick check to see if next ping is still in the future; if it is, nothing to do
 		if (NEXT > launchTime) { 
 			// note: if we already set an alarm for this ping, it's 
 			// no big deal because this set will cancel the old one
 			// ie the system enforces only one alarm at a time per setter
 			setAlarm(NEXT);
+			Log.d(TAG, "set alarm NEXT: " + NEXT);
 			wl.release();
 			this.stopSelf();
 			return;
 		}
 
-		// If we make it here then it's time to do something ---------------------
-		if (NEXT == -1 || SEED == -1) { // then need to recalc from beg.
-			NEXT = nextping(prevping(launchTime));
+		// Next ping was in the past (or not set)
+		
+		if (NEXT == -1) { // need to generate a new next ping
+			NEXT = nextping(prev);
 		}
 
 		pingsDB = new PingsDbAdapter(this);
@@ -105,6 +107,7 @@ public class PingService extends Service {
 			NEXT = nextping(NEXT);
 			editorFlag = true;
 		}
+		
 		// Next, ping for any pings in the last retrothresh seconds.
 		do {
 			while(NEXT <= time()) {
@@ -122,10 +125,10 @@ public class PingService extends Service {
 
 		SharedPreferences.Editor editor = mPrefs.edit();
 		editor.putLong(KEY_NEXT, NEXT);
-		editor.putLong(KEY_SEED, SEED);
 		editor.commit();
 
 		setAlarm(NEXT);
+		Log.d(TAG, "set alarm NEXT: " + NEXT);
 		pingsDB.close();
 		wl.release();
 		this.stopSelf();
@@ -133,10 +136,16 @@ public class PingService extends Service {
 
 	private long logPing(long time, String notes, List<String> tags) {
 		Log.i(TAG,"logPing("+tags+")");
-		return pingsDB.createPing(time, notes, tags);
+		long pid = pingsDB.createPing(time, notes, tags);
+		
+		// Save the time of the new ping
+		SharedPreferences.Editor editor = mPrefs.edit();
+		editor.putLong(KEY_PREV, time);
+		editor.commit();
+		
+		return pid;
 	}
 
-	//////////////////////////////////////////////////////////////////////
 	// just cuz original timepie uses unixtime, which is in seconds,
 	// not universal time, which is in milliseconds
 	private static long time() {
@@ -195,7 +204,6 @@ public class PingService extends Service {
 		// that gets assigned to the notification (we happen to pull it from a layout id
 		// so that we can cancel the notification later on).
 		NM.notify(PING_NOTES, note);
-
 	}
 
 	// TODO: RTC_WAKEUP and appropriate perms into manifest
@@ -207,54 +215,28 @@ public class PingService extends Service {
 				PendingIntent.getBroadcast(this, 0, alit, 0));
 	}
 
-	private static final long IA = 16807;
-	private static final long IM = 2147483647;
-	private static final long INITSEED = 666;
-
-	/* *********************** *
-	 * Random number generator *
-	 * *********************** */
-
-	// Returns a random integer in [1,$IM-1]; changes $seed, ie, RNG state.
-	// (This is ran0 from Numerical Recipes and has a period of ~2 billion.)
-	private static long ran0() {
-		SEED = IA*SEED % IM;
-		return SEED;
+	public long getMean() {
+		long mean;
+		try {
+			mean = mPrefs.getLong("pingFrequency",45*60);
+		} catch (ClassCastException e) {
+			// Someone set an invalid preference
+			mean = 45*60;
+		}
+		return mean;
 	}
-
-	// Returns a U(0,1) random number.
-	private static double ran01() { return ran0()/(IM*1.0); }
-
+	
 	// Returns a random number drawn from an exponential
 	// distribution with mean gap
-	public static double exprand() { return -1 * Constant.GAP * Math.log(ran01()); }
-
-	// Takes previous ping time, returns random next ping time (unix time).
-	// NB: this has the side effect of changing the RNG state ($seed)
-	//     and so should only be called once per next ping to calculate,
-	//     after calling prevping.
-	public static long nextping(long prev) {
-		if (TPController.DEBUG) return time() + 60;
-		return Math.max(prev+1, Math.round(prev+exprand())); 
+	public double exprand() {
+		// Add Float.MIN_VALUE as nextFloat returns a value in the half open range [0,1) - for logs need (0,1]
+		return -1 * getMean() * Math.log(rand.nextFloat() + Float.MIN_VALUE);
 	}
 
-	// Computes the last scheduled ping time before time t.
-	public static long prevping(long t) {
-		SEED = INITSEED;
-		// Starting at the beginning of time, walk forward computing next pings
-		// until the next ping is >= t.
-		final int TUES = 1261198800; //some random time more recent than that..
-		final int BOT = 1184083200;  //start at the birth of timepie!
-		long nxt = TPController.DEBUG ? TUES : BOT;  
-		long lst = nxt;
-		long lstseed = SEED;
-		while(nxt < t) {
-			lst = nxt;
-			lstseed = SEED;
-			nxt = nextping(nxt);
-		}
-		SEED = lstseed;
-		return lst;
+	// Takes previous ping time, returns random next ping time (unix time).
+	public long nextping(long prev) {
+		if (TPController.DEBUG) return time() + 60;
+		return Math.max(prev+1, Math.round(prev+exprand())); 
 	}
 
 	@Override
@@ -294,3 +276,4 @@ public class PingService extends Service {
 	}
 
 }
+

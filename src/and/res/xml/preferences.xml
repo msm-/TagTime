@@ -33,4 +33,11 @@
 	    android:summaryOn="LED will flash"
 	   /> 
   </PreferenceCategory>
+  <PreferenceCategory android:title="Ping Frequency">
+	  <EditTextPreference
+	    android:key="pingFrequency"
+	    android:title="Set mean frequency (mins)"
+	    android:defaultValue="45"
+	   /> 
+  </PreferenceCategory>
 </PreferenceScreen>

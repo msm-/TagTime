@@ -193,7 +193,6 @@ public class Export extends Activity {
 		mDb.deleteAllData();
 		SharedPreferences.Editor ed = mPrefs.edit();
 		ed.remove(PingService.KEY_NEXT);
-		ed.remove(PingService.KEY_SEED);
 		ed.commit();
 	}
 

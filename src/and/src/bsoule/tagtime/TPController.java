@@ -42,8 +42,7 @@ public class TPController extends Activity {
 		//if (mRunning) {
 			Integer stored = Integer.parseInt(mSettings.getString("KEY_APP_VERSION", "-1"));
 			Integer manifest = Integer.parseInt(getText(R.string.app_version).toString());
-			if (stored < manifest || mSettings.getLong(PingService.KEY_NEXT, -1) < 0
-					              || mSettings.getLong(PingService.KEY_SEED, -1) < 0) {
+			if (stored < manifest || mSettings.getLong(PingService.KEY_NEXT, -1) < 0) {
 				startService(new Intent(this, PingService.class));
 			}
 		//}
