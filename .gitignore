@@ -17,3 +17,5 @@ pie-dreeves.png
 rtm
 timetrack
 *.pyc
+src/and/bin
+src/and/gen
