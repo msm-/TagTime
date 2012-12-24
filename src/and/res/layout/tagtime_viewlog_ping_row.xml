@@ -10,6 +10,11 @@
 	android:gravity="top"
 	android:layout_width="wrap_content"
 	android:layout_height="wrap_content" />
+<CheckBox
+    android:id="@+id/chkSelect"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="" />
 <TextView android:id="@+id/viewlog_row_tags"
 	android:textSize="25sp"
 	android:ellipsize="end"

@@ -12,3 +12,11 @@
         	android:text="@string/nodata"/>
 </LinearLayout>
 
+http://stackoverflow.com/questions/8841283/gmail-like-listview-with-checkboxes-and-using-the-actionbar
+
+http://stackoverflow.com/questions/4852828/android-how-to-set-list-item-checked
+CAB: http://developer.android.com/design/patterns/selection.html
+android List 10 and List 11 samples
+http://webcache.googleusercontent.com/search?q=cache:pXvzFq7UR-sJ:www.marvinlabs.com/2010/10/custom-listview-ability-check-items/&hl=en&client=ubuntu&gl=uk&prmd=imvns&strip=1
+
+not quite: http://appfulcrum.com/2010/09/12/listview-example-3-simple-multiple-selection-checkboxes/ 
